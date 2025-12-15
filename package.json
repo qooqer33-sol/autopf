@@ -1,0 +1,45 @@
+{
+  "name": "pump-create-and-sell-bot",
+  "version": "1.0.0",
+  "description": "Интегрированный бот для создания токена на pump.fun и автоматической продажи по триггерам",
+  "main": "dist/create-and-sell.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/cycle-manager-main.ts",
+    "dev": "ts-node src/cycle-manager-main.ts",
+    "prod": "node dist/create-and-sell.js"
+  },
+  "keywords": [
+    "pump.fun",
+    "solana",
+    "token",
+    "trading",
+    "automation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@lighthouse-web3/sdk": "^0.4.3",
+    "@pump-fun/pump-sdk": "^1.24.0",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.4",
+    "@types/node": "^25.0.1",
+    "axios": "^1.6.0",
+    "bn.js": "^5.2.2",
+    "bs58": "^5.0.0",
+    "canvas": "^3.2.0",
+    "chalk": "^4.1.2",
+    "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
+    "form-data": "^4.0.5",
+    "https-proxy-agent": "^7.0.6",
+    "prompt-sync": "^4.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/prompt-sync": "^4.2.0"
+  }
+}
