@@ -13,3 +13,6 @@ dist/
 amounts.json
 mint.json
 .env
+claim/
+emergency_wallets/
+wallets_backups/
