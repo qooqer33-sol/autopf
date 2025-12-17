@@ -12,3 +12,4 @@ dist/
 *~
 amounts.json
 mint.json
+.env

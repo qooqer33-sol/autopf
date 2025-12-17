@@ -1,6 +1,7 @@
 /**
  * Главный файл менеджера циклов Solana
  * Использует модульную архитектуру для управления циклами кошельков
+ * С интегрированным Twitter парсером
  */
 
 import { Connection, Keypair } from '@solana/web3.js';
@@ -20,6 +21,11 @@ import {
   collectAllSol,
   printRoundStatistics,
 } from './modules-cycle-manager';
+import {
+  initializeParser,
+  checkAndParseIfNeeded,
+  countAvailableTwitters,
+} from './modules-twitter-parser';
 
 dotenv.config();
 
@@ -36,6 +42,9 @@ async function runCycleManager(bankKeypair: Keypair) {
   console.log(chalk.magenta.bold(`║  С ИНТЕГРАЦИЕЙ PUMP.FUN               ║`));
   console.log(chalk.magenta.bold(`╚════════════════════════════════════════╝\n`));
 
+  // Инициализация парсера при старте
+  await initializeParser();
+
   let state = loadCycleManagerState();
 
   console.log(chalk.cyan(`📊 Загруженное состояние:`));
@@ -48,6 +57,9 @@ async function runCycleManager(bankKeypair: Keypair) {
   while (true) {
     // Проверяем паузу
     state = await checkAndHandleCyclePause(state);
+
+    // Проверяем наличие твиттеров и запускаем парсинг если нужно
+    await checkAndParseIfNeeded();
 
     try {
       // Создаем раунд с кошельками
@@ -68,7 +80,7 @@ async function runCycleManager(bankKeypair: Keypair) {
 
       // Небольшая пауза перед следующим циклом
       if (!state.isPaused) {
-        console.log(chalk.gray(`⏳ Пауза перед следующим циклом (10 секунд)...\n`));
+        console.log(chalk.gray(`⏳ Пауза перед следующим запуском...\n`));
         await new Promise(resolve => setTimeout(resolve, 10000));
       }
     } catch (error) {

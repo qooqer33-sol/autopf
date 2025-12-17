@@ -1,0 +1,11 @@
+{
+  "vSolReserve": "69800000001",
+  "vTokenReserve": "461174785109060",
+  "rTokenReserves": "793100000000000",
+  "feeBasisPoints": "0",
+  "rSolReserves": "1",
+  "tokenTotalSupply": "1000000000000000",
+  "adjustedVTokenReserve": 1073000000,
+  "adjustedVSolReserve": 30.000000001,
+  "virtualTokenPrice": 2.7958993477166823e-8
+}

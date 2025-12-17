@@ -13,25 +13,27 @@ import { TwitterUser, TokenMetadata } from './cycle-types';
 const RESULTS_DIR = path.join(process.cwd(), 'results');
 
 export function findNextTwitterFile(lastProcessedFile?: string | null): string | null {
-  const currentDir = process.cwd();
   const files = fs.readdirSync(RESULTS_DIR)
-    .filter(file => file.match(/^combined_followers_recent_\d+\.json$/))
+    .filter(file => file.match(/^combined_recent_followers_\d+\.json$/))
     .sort();
-  
+
   if (files.length === 0) {
     return null;
   }
-  
-  if (!lastProcessedFile) {
-    return files[0];
+
+  // Extract just filename if full path was passed
+  const lastFilename = lastProcessedFile ? path.basename(lastProcessedFile) : null;
+
+  if (!lastFilename) {
+    return path.join(RESULTS_DIR, files[0]);
   }
-  
-  const currentIndex = files.indexOf(lastProcessedFile);
+
+  const currentIndex = files.indexOf(lastFilename);
   if (currentIndex === -1 || currentIndex === files.length - 1) {
-    return files[0];
+    return path.join(RESULTS_DIR, files[0]);
   }
-  
-  return files[currentIndex + 1];
+
+  return path.join(RESULTS_DIR, files[currentIndex + 1]);
 }
 
 export function loadTwitterUsers(filepath: string): TwitterUser[] {
@@ -74,6 +76,22 @@ export function cleanName(input: string): string {
     cleaned = cleaned.split('_')[0];
   }
   return cleaned || input;
+}
+
+/**
+ * Сокращает тикер до максимум 10 символов
+ * Убирает пробелы и специальные символы
+ */
+export function truncateTicker(input: string, maxLength: number = 10): string {
+  // Убираем пробелы и специальные символы, оставляем только буквы и цифры
+  let cleaned = input.replace(/[^a-zA-Z0-9]/g, '');
+  
+  // Сокращаем до maxLength символов
+  if (cleaned.length > maxLength) {
+    cleaned = cleaned.substring(0, maxLength);
+  }
+  
+  return cleaned || input.substring(0, maxLength);
 }
 
 // ============= PROFILE IMAGE OPERATIONS =============
@@ -137,6 +155,10 @@ export async function downloadProfileImage(imageUrl: string, filename: string): 
 /**
  * Подготовка ассетов для токена (фото, метаданные)
  * Возвращает путь к локальному файлу с фото и метаданные
+ * 
+ * ИСПРАВЛЕНО:
+ * - name = Twitter name (имя пользователя, например "Meowillion")
+ * - symbol = Twitter username (сокращённый до 10 символов, например "MeowillioO")
  */
 export async function prepareTokenAssets(twitterUser: TwitterUser): Promise<TokenMetadata> {
   try {
@@ -152,30 +174,36 @@ export async function prepareTokenAssets(twitterUser: TwitterUser): Promise<Toke
       photoStatus = '(скачано)';
     }
 
-    const cleanedName = cleanName(twitterUser.name);
-    const cleanedUsername = cleanName(twitterUser.username);
+    // ИСПРАВЛЕНО: name = Twitter name, symbol = Twitter username (сокращённый до 10 символов)
+    const tokenName = cleanName(twitterUser.name);  // Twitter name -> token name
+    const tokenSymbol = truncateTicker(twitterUser.username, 10);  // Twitter username -> token symbol (max 10 chars)
 
     console.log(chalk.cyan('🐜 Метаданные токена:'));
-    console.log(chalk.cyan(`  📄 Название: ${cleanedName}`));
-    console.log(chalk.cyan(`  💵 Тикер: ${cleanedUsername}`));
-    console.log(chalk.cyan(`  📝 Описание: ${twitterUser.description || `Token for ${cleanedName}`}`));
+    console.log(chalk.cyan(`  📄 Название (name): ${tokenName}`));
+    console.log(chalk.cyan(`  💵 Тикер (symbol): ${tokenSymbol}`));
+    console.log(chalk.cyan(`  📝 Описание: ${twitterUser.description || `Token for ${tokenName}`}`));
     console.log(chalk.cyan(`  🛸 Фото: ${photoStatus}\n`));
 
     return {
-      name: cleanedName,
-      symbol: cleanedUsername,
-      uri: imagePath, // ВРЕМЕННО ИСПОЛЬЗУЕМ URI ДЛЯ ПЕРЕДАЧИ ПУТИ К ФАЙЛУ
-      description: twitterUser.description || `Token for ${cleanedName}`,
+      name: tokenName,      // Twitter name
+      symbol: tokenSymbol,  // Twitter username (сокращённый до 10 символов)
+      uri: imagePath,
+      description: twitterUser.description || `Token for ${tokenName}`,
       imageFilename,
       photoStatus,
     };
   } catch (error) {
     console.warn(chalk.yellow(`⚠️  Ошибка при обработке фото: ${(error as Error).message}`));
+    
+    // ИСПРАВЛЕНО: даже при ошибке используем правильную логику
+    const tokenName = cleanName(twitterUser.name);
+    const tokenSymbol = truncateTicker(twitterUser.username, 10);
+    
     return {
-      name: cleanName(twitterUser.name),
-      symbol: cleanName(twitterUser.username),
-      uri: '', // Оставляем пустым при ошибке
-      description: twitterUser.description || `Token for ${cleanName(twitterUser.name)}`,
+      name: tokenName,
+      symbol: tokenSymbol,
+      uri: '',
+      description: twitterUser.description || `Token for ${tokenName}`,
       imageFilename: '',
       photoStatus: '(ошибка)',
     };
@@ -186,6 +214,7 @@ export default {
   findNextTwitterFile,
   loadTwitterUsers,
   cleanName,
+  truncateTicker,
   hasRealProfileImage,
   generateAvatarImage,
   downloadProfileImage,

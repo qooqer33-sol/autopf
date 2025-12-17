@@ -1,9 +1,9 @@
 {
-  "cycleNumber": 5,
-  "lastRoundId": "round_4",
-  "totalCycles": 4,
+  "cycleNumber": 7,
+  "lastRoundId": "round_6",
+  "totalCycles": 6,
   "totalProfit": 0,
   "isPaused": true,
-  "pauseUntil": 1765831364164,
-  "lastUpdateTime": "2025-12-15T19:42:44.165Z"
+  "pauseUntil": 1765931348921,
+  "lastUpdateTime": "2025-12-16T23:29:08.921Z"
 }
