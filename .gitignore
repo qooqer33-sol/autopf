@@ -16,3 +16,8 @@ mint.json
 claim/
 emergency_wallets/
 wallets_backups/
+solana_wallet_monitor/claim/
+solana_wallet_monitor/emergency_wallets/
+solana_wallet_monitor/wallets_backups/
+.env
+solana_wallet_monitor/profile_images/

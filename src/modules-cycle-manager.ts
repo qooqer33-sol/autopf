@@ -1,6 +1,10 @@
 /**
  * Менеджер циклов для запуска токенов с Twitter данными
  * Полная логика: создание кошельков → запуск токенов → сбор SOL
+ * 
+ * ОБНОВЛЕНО: Интеграция с ванити-пулом
+ * - Перед запуском токенов получаем ванити-ключи из пула
+ * - Передаём ванити-ключи в launchTokenOnWorkerWallet
  */
 
 import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
@@ -20,6 +24,16 @@ import {
 import { launchTokenOnWorkerWallet } from './modules-token-launcher';
 import { saveRoundInfo } from './modules-state-manager';
 import { findNextTwitterFile, loadTwitterUsers } from './modules-twitter-handler';
+
+// ============= ИМПОРТ ВАНИТИ-ПУЛА =============
+import {
+  initVanityPool,
+  getVanityKeypairs,
+  hasEnoughKeys,
+  generateVanityKeys,
+  getPoolStats,
+  startBackgroundGeneration,
+} from './modules-vanity-pool';
 
 // ============= TWITTER DATA MANAGEMENT =============
 
@@ -191,6 +205,7 @@ export async function createRound(
 
 /**
  * Запуск токенов на всех рабочих кошельках с Twitter данными
+ * ОБНОВЛЕНО: Интеграция с ванити-пулом
  */
 export async function launchTokensOnWorkers(
   roundInfo: RoundInfo,
@@ -200,6 +215,32 @@ export async function launchTokensOnWorkers(
   const workerKeypairs = roundInfo.workerWallets.map((wallet) =>
     Keypair.fromSecretKey(Buffer.from(wallet.privateKey, 'base64'))
   );
+
+  // ============= ПОЛУЧЕНИЕ ВАНИТИ-КЛЮЧЕЙ =============
+  const workersCount = workerKeypairs.length;
+  
+  console.log(chalk.cyan.bold('\n╔════════════════════════════════════════╗'));
+  console.log(chalk.cyan.bold('║  ПОДГОТОВКА ВАНИТИ-АДРЕСОВ             ║'));
+  console.log(chalk.cyan.bold('╚════════════════════════════════════════╝\n'));
+  
+  // Проверяем пул
+  const stats = getPoolStats();
+  console.log(chalk.cyan(`📊 Статус пула: ${stats.available} ключей доступно`));
+  
+  let vanityMints: Keypair[] = [];
+  
+  if (hasEnoughKeys(workersCount)) {
+    // Получаем ванити-ключи из пула
+    vanityMints = getVanityKeypairs(workersCount);
+    console.log(chalk.green(`✅ Получено ${vanityMints.length} ванити-ключей из пула:`));
+    vanityMints.forEach((mint, i) => {
+      console.log(chalk.green(`   ${i + 1}. ${mint.publicKey.toBase58()}`));
+    });
+  } else {
+    console.log(chalk.yellow(`⚠️  Недостаточно ванити-ключей в пуле (нужно ${workersCount}, есть ${stats.available})`));
+    console.log(chalk.yellow(`   Токены будут запущены с обычными адресами`));
+    console.log(chalk.yellow(`   Запустите генерацию: npx ts-node src/generate-vanity-pool.ts ${workersCount}\n`));
+  }
 
   // Загружаем состояние Twitter пользователей
   const twitterState = loadTwitterState();
@@ -222,12 +263,16 @@ export async function launchTokensOnWorkers(
     console.log(chalk.cyan(`📊 Имя: ${twitterUser.name}`));
     console.log(chalk.cyan(`💰 Инвестиция: ${solAmount} SOL\n`));
 
+    // Получаем ванити-ключ для этого кошелька (если есть)
+    const vanityMint = vanityMints[i] || undefined;
+
     const launchResult = await launchTokenOnWorkerWallet(
       workerKeypairs[i],
       walletName,
       solAmount,
       connection,
-      twitterUser // ← ПЕРЕДАЕМ TWITTER ДАННЫЕ
+      twitterUser,
+      vanityMint  // ← ПЕРЕДАЕМ ВАНИТИ-КЛЮЧ
     );
 
     roundInfo.workerLaunches.push({
@@ -323,9 +368,34 @@ export function printRoundStatistics(roundInfo: RoundInfo): void {
   console.log(chalk.cyan(`\n   Итого: ${totalProfitStr} SOL\n`));
 }
 
+// ============= ФОНОВАЯ ГЕНЕРАЦИЯ ВАНИТИ-КЛЮЧЕЙ =============
+
+/**
+ * Запуск фоновой генерации ванити-ключей во время паузы
+ * Вызывайте эту функцию в паузе между циклами
+ * 
+ * @param durationMs - Время генерации в миллисекундах (по умолчанию 55 минут)
+ */
+export async function generateVanityDuringPause(durationMs: number = 55 * 60 * 1000): Promise<number> {
+  console.log(chalk.cyan.bold('\n╔════════════════════════════════════════╗'));
+  console.log(chalk.cyan.bold('║  ФОНОВАЯ ГЕНЕРАЦИЯ ВАНИТИ-КЛЮЧЕЙ       ║'));
+  console.log(chalk.cyan.bold('╚════════════════════════════════════════╝\n'));
+  
+  const stats = getPoolStats();
+  console.log(chalk.cyan(`📊 Текущий размер пула: ${stats.available} ключей`));
+  console.log(chalk.cyan(`⏱️  Время генерации: ${(durationMs / 60000).toFixed(0)} мин\n`));
+  
+  const generated = await startBackgroundGeneration(durationMs);
+  
+  console.log(chalk.green(`\n✅ Сгенерировано ${generated} новых ванити-ключей`));
+  
+  return generated;
+}
+
 export default {
   createRound,
   launchTokensOnWorkers,
   collectAllSol,
   printRoundStatistics,
+  generateVanityDuringPause,
 };

@@ -1,6 +1,11 @@
 /**
  * Модуль для запуска токенов на pump.fun
- * Полный готовый к использованию код с исправлением приватного ключа
+ * ОБНОВЛЕНО: Поддержка внешнего ванити-ключа mint
+ * 
+ * Изменения:
+ * - Добавлен опциональный параметр vanityMint в launchTokenOnWorkerWallet
+ * - Если vanityMint передан — используем его
+ * - Если не передан — генерируем обычный или ванити-ключ на лету
  */
 
 import {
@@ -51,17 +56,33 @@ export function getBuyAmount(consecutiveLosses: number): number {
 
 /**
  * Запуск токена на рабочем кошельке (для менеджера циклов)
- * Это основная функция, которая используется в цикле
+ * 
+ * @param workerKeypair - Keypair рабочего кошелька
+ * @param walletName - Имя кошелька для логов
+ * @param solAmount - Количество SOL для покупки
+ * @param connection - Solana Connection
+ * @param twitterUser - Данные Twitter пользователя (опционально)
+ * @param vanityMint - Готовый ванити-ключ для mint (опционально)
+ *                     Если не передан — генерируется обычный Keypair
  */
 export async function launchTokenOnWorkerWallet(
   workerKeypair: Keypair,
   walletName: string,
   solAmount: number,
   connection: Connection,
-  twitterUser?: TwitterUser
+  twitterUser?: TwitterUser,
+  vanityMint?: Keypair  // ← НОВЫЙ ПАРАМЕТР
 ): Promise<WorkerLaunchResult> {
   console.log(chalk.cyan.bold(`\n🚀 Запуск токена на ${walletName}`));
-  console.log(chalk.cyan(`💰 Инвестиция: ${solAmount} SOL\n`));
+  console.log(chalk.cyan(`💰 Инвестиция: ${solAmount} SOL`));
+  
+  // Показываем, используется ли ванити-адрес
+  if (vanityMint) {
+    console.log(chalk.green(`🎯 Ванити-адрес: ${vanityMint.publicKey.toBase58()}`));
+  } else {
+    console.log(chalk.yellow(`📍 Обычный адрес (без ванити)`));
+  }
+  console.log('');
 
   const initialBalance = await getBalance(workerKeypair.publicKey, connection);
   console.log(chalk.yellow(`💰 Начальный баланс: ${initialBalance.toFixed(4)} SOL\n`));
@@ -85,14 +106,14 @@ export async function launchTokenOnWorkerWallet(
         throw new Error('Не удалось подготовить ассеты для токена');
       }
 
-      // Загружаем на Lighthouse и получаем IPFS URI
+      // Загружаем на IPFS и получаем URI
       tokenUri = await createTokenUriWithPinata(
         tokenAssets.name,
         tokenAssets.symbol,
         tokenAssets.description,
-        tokenAssets.uri, // это путь к локальному файлу с фото
-        `https://x.com/${twitterUser.username}`, // Twitter URL
-        twitterUser.username // Twitter username
+        tokenAssets.uri,
+        `https://x.com/${twitterUser.username}`,
+        twitterUser.username
       );
 
       tokenName = tokenAssets.name;
@@ -103,13 +124,16 @@ export async function launchTokenOnWorkerWallet(
     } catch (error) {
       console.warn(chalk.yellow(`⚠️  Ошибка при подготовке метаданных: ${(error as Error).message}`));
       console.warn(chalk.yellow(`   Используем стандартные значения\n`));
-      // Продолжаем с стандартными значениями
     }
   }
 
   try {
-    // Создаем новый Keypair для токена
-    const mint = Keypair.generate();
+    // ============= ВЫБОР MINT KEYPAIR =============
+    // Используем переданный ванити-ключ или генерируем новый
+    const mint = vanityMint || Keypair.generate();
+    
+    console.log(chalk.cyan(`📍 Mint адрес: ${mint.publicKey.toBase58()}`));
+    console.log(chalk.cyan(`   Окончание: ...${mint.publicKey.toBase58().slice(-4)}\n`));
 
     // Инициализируем SDK для Pump.fun
     const onlineSdk = new OnlinePumpSdk(connection);
@@ -120,7 +144,6 @@ export async function launchTokenOnWorkerWallet(
     const global = await getWithRetry(async () => {
       const result = await onlineSdk.fetchGlobal();
       
-      // Валидируем результат
       if (!result || typeof result !== 'object') {
         throw new Error(`Invalid global data: expected object, got ${typeof result}`);
       }
@@ -184,12 +207,12 @@ export async function launchTokenOnWorkerWallet(
       });
 
       console.log(chalk.green(`✅ Транзакция отправлена!`));
-      console.log(chalk.yellow(`📌 Сигнатура: ${signature}\n`));
+      console.log(chalk.yellow(`📌 Сигнатура: ${signature}`));
+      console.log(chalk.green(`🔗 https://pump.fun/${mint.publicKey.toBase58()}\n`));
     } catch (error: any) {
       console.error(chalk.red(`❌ Ошибка при отправке транзакции:`));
       console.error(chalk.red(`   ${error.message}`));
 
-      // Если это SendTransactionError, получаем детальные логи
       if (error.logs && Array.isArray(error.logs)) {
         console.error(chalk.red(`📋 Логи транзакции:`));
         error.logs.forEach((log: string, index: number) => {
@@ -197,7 +220,6 @@ export async function launchTokenOnWorkerWallet(
         });
       }
 
-      // Проверяем баланс для отладки
       const currentBalance = await checkBalance(workerKeypair.publicKey.toBase58(), connection);
       console.error(chalk.red(`💰 Текущий баланс: ${currentBalance.toFixed(4)} SOL`));
 
@@ -256,8 +278,8 @@ export async function launchTokenOnWorkerWallet(
         false,
         TOKEN_PROGRAM_ID
       ).toBase58(),
-      twitterUrl: twitterUser ? `https://x.com/${twitterUser.username}` : undefined,  // ← ДОБАВИТЬ
-      twitterUsername: twitterUser?.username,  // ← ДОБАВИТЬ
+      twitterUrl: twitterUser ? `https://x.com/${twitterUser.username}` : undefined,
+      twitterUsername: twitterUser?.username,
     };
 
     wipeAmountsFile();
@@ -268,7 +290,6 @@ export async function launchTokenOnWorkerWallet(
     console.log(chalk.cyan.bold('📊 ОТСЛЕЖИВАНИЕ И ПРОДАЖА'));
     console.log(chalk.cyan.bold('═══════════════════════════════════════\n'));
 
-    // ВАЖНО: Передаем приватный ключ рабочего кошелька в base58 формате
     const workerPrivateKeyBase58 = bs58.encode(workerKeypair.secretKey);
     
     await checkCurveAndSell(
@@ -278,10 +299,8 @@ export async function launchTokenOnWorkerWallet(
       workerPrivateKeyBase58
     );
 
-    // Ждем перед проверкой финального баланса
     await new Promise(resolve => setTimeout(resolve, 5000));
 
-    // Проверяем финальный баланс
     const finalBalance = await getBalance(workerKeypair.publicKey, connection);
     const profit = finalBalance - initialBalance;
 

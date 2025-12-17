@@ -1,10 +1,10 @@
 {
-  "virtualSolReserves": "30000000001",
-  "virtualTokenReserves": "1038718849903973",
-  "realTokenReserves": "758818849903973",
-  "rSolReserves": 990099008,
+  "virtualSolReserves": "30131181580",
+  "virtualTokenReserves": "1034047349261946",
+  "realTokenReserves": "754147349261946",
+  "rSolReserves": 1130102527,
   "tokenTotalSupply": 1000000000000000,
-  "adjustedVTokenReserve": 1038718849.903973,
-  "adjustedVSolReserve": 30.990099008,
-  "virtualTokenPrice": 2.983492502409575e-8
+  "adjustedVTokenReserve": 1034047349.261946,
+  "adjustedVSolReserve": 31.130102527,
+  "virtualTokenPrice": 3.0105103551804656e-8
 }
