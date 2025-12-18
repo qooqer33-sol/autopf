@@ -21,3 +21,4 @@ solana_wallet_monitor/emergency_wallets/
 solana_wallet_monitor/wallets_backups/
 .env
 solana_wallet_monitor/profile_images/
+profile_images/
