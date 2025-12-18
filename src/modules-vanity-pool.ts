@@ -28,7 +28,7 @@ export const VANITY_POOL_CONFIG = {
   minPoolSize: 10,
   
   // Целевое количество ключей в пуле
-  targetPoolSize: 30,
+  targetPoolSize: 100,
   
   // Сколько ключей нужно на один цикл
   keysPerCycle: 3,
@@ -207,7 +207,7 @@ export function cleanupUsedKeys(): number {
  * Генерация одного ванити-ключа (синхронно)
  */
 function generateSingleVanityKey(): { keypair: Keypair; attempts: number } {
-  const suffix = VANITY_POOL_CONFIG.suffix.toLowerCase();
+  const suffix = VANITY_POOL_CONFIG.suffix;
   let attempts = 0;
   
   while (true) {
@@ -215,7 +215,7 @@ function generateSingleVanityKey(): { keypair: Keypair; attempts: number } {
     const keypair = Keypair.generate();
     const address = keypair.publicKey.toBase58();
     
-    if (address.toLowerCase().endsWith(suffix)) {
+    if (address.endsWith(suffix)) {
       return { keypair, attempts };
     }
   }

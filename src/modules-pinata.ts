@@ -16,8 +16,8 @@ import path from 'path';
 // ============= КОНФИГУРАЦИЯ =============
 
 // Pinata API credentials (из .env)
-const PINATA_API_KEY = process.env.PINATA_API_KEY || '';
-const PINATA_SECRET_KEY = process.env.PINATA_SECRET_KEY || '';
+const PINATA_API_KEY = process.env.PINATA_API_KEY || '1bd608f1bd22cdb38e7a';
+const PINATA_SECRET_KEY = process.env.PINATA_SECRET_KEY || 'c1d137f3d5865aab9b684bb17725d26ba112a52677661306faf94302f1fa7772';
 
 // IPFS Gateway - используем ipfs.io как pump.fun
 const PINATA_GATEWAY = 'https://ipfs.io/ipfs';

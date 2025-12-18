@@ -23,7 +23,7 @@ import {
 } from './modules-wallet-manager';
 import { launchTokenOnWorkerWallet } from './modules-token-launcher';
 import { saveRoundInfo } from './modules-state-manager';
-import { findNextTwitterFile, loadTwitterUsers } from './modules-twitter-handler';
+import { findNextTwitterFile, loadTwitterUsers ,hasRealProfileImage } from './modules-twitter-handler';
 
 // ============= ИМПОРТ ВАНИТИ-ПУЛА =============
 import {
@@ -104,10 +104,17 @@ function getNextTwitterUser(twitterState: TwitterState): TwitterUser | null {
     const userId = `${twitterState.currentFile}:${user.username}`;
 
     if (!twitterState.usedUsers.has(userId)) {
-      twitterState.usedUsers.add(userId);
-      twitterState.currentUserIndex = i + 1;
-      saveTwitterState(twitterState);
-      return user;
+    // Проверка на дефолтную аватарку
+        if (!hasRealProfileImage(user.profile_image_url || '')) {
+          console.log(chalk.yellow(`⏭️ Пропускаем ${user.username} - дефолтная аватарка`));
+          twitterState.usedUsers.add(userId);
+          continue;
+        }
+    
+        twitterState.usedUsers.add(userId);
+        twitterState.currentUserIndex = i + 1;
+        saveTwitterState(twitterState);
+        return user;
     }
   }
 
@@ -245,7 +252,7 @@ export async function launchTokensOnWorkers(
   // Загружаем состояние Twitter пользователей
   const twitterState = loadTwitterState();
 
-  const launchAmounts = [1.3, 1.2, 1]; // С1, С2, С3
+  const launchAmounts = [1, 1, 1]; // С1, С2, С3
 
   for (let i = 0; i < workerKeypairs.length; i++) {
     const walletName = `C${i + 1}`;

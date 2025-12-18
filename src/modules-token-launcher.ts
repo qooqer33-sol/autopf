@@ -14,6 +14,7 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   Transaction,
+  ComputeBudgetProgram,
 } from '@solana/web3.js';
 import { PumpSdk, OnlinePumpSdk, getBuyTokenAmountFromSolAmount } from '@pump-fun/pump-sdk';
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
@@ -33,7 +34,7 @@ import { createTokenUriWithPinata } from './modules-pinata';
 // ============= TOKEN LAUNCH PARAMETERS =============
 
 const BUY_PARAMS = {
-  solAmount: [1.3, 1.2, 1]
+  solAmount: [1, 1, 1]
 };
 
 /**
@@ -42,13 +43,13 @@ const BUY_PARAMS = {
 export function getBuyAmount(consecutiveLosses: number): number {
   switch (consecutiveLosses) {
     case 0:
-      return 1.3;
+      return 1;
     case 1:
-      return 1.2;
+      return 1;
     case 2:
       return 1;
     default:
-      return 1.3;
+      return 1;
   }
 }
 
@@ -173,7 +174,7 @@ export async function launchTokenOnWorkerWallet(
         global,
         mint: mint.publicKey,
         name: tokenName,
-        symbol: tokenSymbol,
+        symbol: tokenSymbol.toUpperCase(),
         uri: tokenUri,
         creator: workerKeypair.publicKey,
         user: workerKeypair.publicKey,
@@ -192,8 +193,10 @@ export async function launchTokenOnWorkerWallet(
     }
 
     // Отправляем транзакцию
-    console.log(chalk.cyan('📤 Отправка транзакции...\n'));
-    const transaction = new Transaction().add(...instructions);
+    // Compute Budget инструкции для приоритета
+    const computeUnitLimitIx = ComputeBudgetProgram.setComputeUnitLimit({ units: 350000 });
+    const computeUnitPriceIx = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100000 });
+    const transaction = new Transaction().add(computeUnitLimitIx, computeUnitPriceIx, ...instructions);
     const { blockhash } = await connection.getLatestBlockhash('confirmed');
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = workerKeypair.publicKey;

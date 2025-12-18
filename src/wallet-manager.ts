@@ -75,7 +75,7 @@ async function sendSol(
     const instruction = SystemProgram.transfer({
       fromPubkey: fromKeypair.publicKey,
       toPubkey: toPublicKey,
-      lamports: amountSol * LAMPORTS_PER_SOL,
+      lamports: Math.floor(amountSol * LAMPORTS_PER_SOL),
     });
 
     const transaction = new Transaction().add(instruction);
