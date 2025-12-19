@@ -93,7 +93,7 @@ async function checkCurveAndSell(
             autoSellTriggered = true;
             breakCurveTrigger = true;
         }
-    }, 15000);
+    }, 60000);
 
     console.log(chalk.cyan(`Starting curve polling... Min expected buys: ${Math.floor(minExpectedBuys).toLocaleString()}`));
     while (continueChecking) {

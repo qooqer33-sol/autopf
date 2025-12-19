@@ -37,7 +37,7 @@ const RAPIDAPI_KEY = '9bdc8b69e0mshd06c9ef50e25398p190455jsnb9ae6ceced33';
 const RAPIDAPI_HOST = 'x66.p.rapidapi.com';
 
 // Прокси
-const PROXY_URL = 'http://user229219:q0fai8@23.26.142.37:1171';
+const PROXY_URL = null;
 // const PROXY_URL = null; // Отключить прокси
 // ===============================
 

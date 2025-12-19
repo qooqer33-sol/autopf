@@ -70,28 +70,176 @@ export function loadTwitterUsers(filepath: string): TwitterUser[] {
 
 // ============= NAME CLEANING =============
 
-export function cleanName(input: string): string {
-  let cleaned = input.replace(/\d+$/, '').trim();
-  if (cleaned.includes('_')) {
-    cleaned = cleaned.split('_')[0];
+/**
+ * Удаляет все цифры из строки
+ */
+export function removeDigits(input: string): string {
+  return input.replace(/\d/g, '');
+}
+
+/**
+ * Капитализирует первую букву слова, остальные в нижнем регистре
+ */
+export function capitalize(word: string): string {
+  if (!word) return word;
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+}
+
+/**
+ * Разделяет строку на 2 слова для поля name
+ * - Убирает все цифры
+ * - Если есть пробел или underscore — разделяет по ним
+ * - Если нет — делит примерно пополам
+ * 
+ * Примеры:
+ * - Turysta1997 -> Tury sta
+ * - Qauntblocks -> Qaunt blocks
+ * - ElLic8u -> El Lic
+ * - bellee2opp -> bel lee
+ */
+export function splitNameIntoTwoWords(input: string): string {
+  // 1. Убираем все цифры
+  let cleaned = removeDigits(input);
+  
+  // 2. Убираем лишние пробелы и точки
+  cleaned = cleaned.replace(/\./g, '').trim();
+  
+  // Если пустая строка после очистки — возвращаем дефолт
+  if (!cleaned) {
+    return 'Token Name';
   }
-  return cleaned || input;
+  
+  // 3. Если уже есть пробел — возвращаем первые 2 слова
+  if (cleaned.includes(' ')) {
+    const words = cleaned.split(/\s+/).filter(w => w.length > 0);
+    if (words.length >= 2) {
+      return `${capitalize(words[0])} ${capitalize(words[1])}`;
+    }
+    // Если только одно слово после разделения, делим его
+    cleaned = words[0] || cleaned;
+  }
+  
+  // 4. Если есть underscore — разделяем по нему
+  if (cleaned.includes('_')) {
+    const parts = cleaned.split('_').filter(p => p.length > 0);
+    if (parts.length >= 2) {
+      return `${capitalize(parts[0])} ${capitalize(parts[1])}`;
+    }
+    cleaned = parts[0] || cleaned;
+  }
+  
+  // 5. Пробуем найти границу между словами по CamelCase
+  // Например: HelloWorld -> Hello World, SkyOnTrust -> Sky On Trust
+  // Разбиваем по заглавным буквам
+  const camelCaseWords = cleaned.split(/(?=[A-Z])/).filter(w => w.length > 0);
+  // Проверяем, что хотя бы одно слово имеет более 1 буквы (чтобы не разбивать ABC на A B C)
+  const hasRealWords = camelCaseWords.some(w => w.length > 1);
+  if (camelCaseWords.length >= 2 && hasRealWords) {
+    // Если нашли 2+ слова по CamelCase, возвращаем их все (максимум 4 слова)
+    const wordsToUse = camelCaseWords.slice(0, 4);
+    return wordsToUse.map(w => capitalize(w)).join(' ');
+  }
+  
+  // 6. Если строка слишком короткая (<=3 символа) — дублируем
+  if (cleaned.length <= 3) {
+    return `${capitalize(cleaned)} ${capitalize(cleaned)}`;
+  }
+  
+  // 7. Делим примерно пополам
+  // Примеры из задания:
+  // - Turysta (7 симв.) -> Tury sta (4+3) - делим после 4-го
+  // - Qauntblocks (11 симв.) -> Qaunt blocks (5+6) - делим после 5-го
+  // - ElLic (5 симв.) -> El Lic (2+3) - делим после 2-го
+  // - belleeeopp (9 симв.) -> bel lee (3+3, обрезаем)
+  // 
+  // Логика: делим примерно посередине, но вторая часть максимум 6 символов
+  const len = cleaned.length;
+  
+  // Для коротких строк (4-6 симв.) делим пополам
+  // Для длинных строк делим так, чтобы вторая часть была 3-6 символов
+  let splitPoint: number;
+  
+  if (len <= 6) {
+    // Для коротких: делим пополам (округляя вниз)
+    splitPoint = Math.floor(len / 2);
+  } else if (len <= 10) {
+    // Для средних: делим так, чтобы вторая часть была 3-4 символа
+    // Turysta(7) -> 4+3, Qauntblocks(11) -> 5+6
+    splitPoint = Math.ceil(len / 2);
+    // Но не больше len-3 (чтобы вторая часть была минимум 3 символа)
+    if (splitPoint > len - 3) {
+      splitPoint = len - 3;
+    }
+  } else {
+    // Для длинных: вторая часть 5-6 символов
+    splitPoint = len - 6;
+  }
+  
+  const firstPart = cleaned.substring(0, splitPoint);
+  const secondPart = cleaned.substring(splitPoint);
+  
+  // Капитализируем каждое слово
+  return `${capitalize(firstPart)} ${capitalize(secondPart)}`;
+}
+
+/**
+ * Очищает имя для использования (устаревшая функция, оставлена для совместимости)
+ */
+export function cleanName(input: string): string {
+  return splitNameIntoTwoWords(input);
 }
 
 /**
  * Сокращает тикер до максимум 10 символов
- * Убирает пробелы и специальные символы
+ * Убирает пробелы, специальные символы И ЦИФРЫ
+ * @deprecated Используйте getTickerFromName() для новой логики
  */
 export function truncateTicker(input: string, maxLength: number = 10): string {
-  // Убираем пробелы и специальные символы, оставляем только буквы и цифры
-  let cleaned = input.replace(/[^a-zA-Z0-9]/g, '');
+  // Убираем пробелы, специальные символы И ЦИФРЫ — оставляем только буквы
+  let cleaned = input.replace(/[^a-zA-Z]/g, '');
   
   // Сокращаем до maxLength символов
   if (cleaned.length > maxLength) {
     cleaned = cleaned.substring(0, maxLength);
   }
   
-  return cleaned || input.substring(0, maxLength);
+  // Если пустая строка — генерируем случайный тикер
+  if (!cleaned) {
+    cleaned = 'TOKEN';
+  }
+  
+  return cleaned;
+}
+
+/**
+ * Получает тикер из имени токена
+ * Берёт первое слово из name и делает его капсом
+ * 
+ * Примеры:
+ * - "Bob Streamer" -> "BOB"
+ * - "Crypto King" -> "CRYPTO"
+ * - "Sky On Trust" -> "SKY"
+ */
+export function getTickerFromName(tokenName: string, maxLength: number = 10): string {
+  // Разбиваем по пробелам и берём первое слово
+  const words = tokenName.split(/\s+/).filter(w => w.length > 0);
+  let firstWord = words[0] || 'TOKEN';
+  
+  // Убираем все кроме букв
+  firstWord = firstWord.replace(/[^a-zA-Z]/g, '');
+  
+  // Сокращаем до maxLength
+  if (firstWord.length > maxLength) {
+    firstWord = firstWord.substring(0, maxLength);
+  }
+  
+  // Если пусто — дефолт
+  if (!firstWord) {
+    firstWord = 'TOKEN';
+  }
+  
+  // Возвращаем капсом
+  return firstWord.toUpperCase();
 }
 
 // ============= PROFILE IMAGE OPERATIONS =============
@@ -156,9 +304,9 @@ export async function downloadProfileImage(imageUrl: string, filename: string): 
  * Подготовка ассетов для токена (фото, метаданные)
  * Возвращает путь к локальному файлу с фото и метаданные
  * 
- * ИСПРАВЛЕНО:
- * - name = Twitter name (имя пользователя, например "Meowillion")
- * - symbol = Twitter username (сокращённый до 10 символов, например "MeowillioO")
+ * ОБНОВЛЕНО:
+ * - name = Twitter name, разделённое на 2 слова без цифр
+ * - symbol = Twitter username без цифр (сокращённый до 10 символов)
  */
 export async function prepareTokenAssets(twitterUser: TwitterUser): Promise<TokenMetadata> {
   try {
@@ -166,17 +314,21 @@ export async function prepareTokenAssets(twitterUser: TwitterUser): Promise<Toke
     let photoStatus = '';
     let imagePath = '';
 
+    // Для генерации аватара используем оригинальное имя
+    const originalName = twitterUser.name;
+
     if (!hasRealProfileImage(twitterUser.profile_image_url)) {
-      imagePath = generateAvatarImage(cleanName(twitterUser.name), imageFilename);
+      imagePath = generateAvatarImage(originalName, imageFilename);
       photoStatus = '(сгенерировано)';
     } else {
       imagePath = await downloadProfileImage(twitterUser.profile_image_url, imageFilename);
       photoStatus = '(скачано)';
     }
 
-    // ИСПРАВЛЕНО: name = Twitter name, symbol = Twitter username (сокращённый до 10 символов)
-    const tokenName = cleanName(twitterUser.name);  // Twitter name -> token name
-    const tokenSymbol = truncateTicker(twitterUser.username, 10);  // Twitter username -> token symbol (max 10 chars)
+    // ОБНОВЛЕНО: name = Twitter name разделённое на 2 слова без цифр
+    const tokenName = splitNameIntoTwoWords(twitterUser.name);
+    // ОБНОВЛЕНО: symbol = первое слово из name капсом (max 10 chars)
+    const tokenSymbol = getTickerFromName(tokenName);
 
     console.log(chalk.cyan('🐜 Метаданные токена:'));
     console.log(chalk.cyan(`  📄 Название (name): ${tokenName}`));
@@ -185,8 +337,8 @@ export async function prepareTokenAssets(twitterUser: TwitterUser): Promise<Toke
     console.log(chalk.cyan(`  🛸 Фото: ${photoStatus}\n`));
 
     return {
-      name: tokenName,      // Twitter name
-      symbol: tokenSymbol,  // Twitter username (сокращённый до 10 символов)
+      name: tokenName,      // Twitter name разделённое на 2 слова
+      symbol: tokenSymbol,  // Twitter username без цифр (сокращённый до 10 символов)
       uri: imagePath,
       description: twitterUser.description || `Token for ${tokenName}`,
       imageFilename,
@@ -195,9 +347,9 @@ export async function prepareTokenAssets(twitterUser: TwitterUser): Promise<Toke
   } catch (error) {
     console.warn(chalk.yellow(`⚠️  Ошибка при обработке фото: ${(error as Error).message}`));
     
-    // ИСПРАВЛЕНО: даже при ошибке используем правильную логику
-    const tokenName = cleanName(twitterUser.name);
-    const tokenSymbol = truncateTicker(twitterUser.username, 10);
+    // ОБНОВЛЕНО: даже при ошибке используем правильную логику
+    const tokenName = splitNameIntoTwoWords(twitterUser.name);
+    const tokenSymbol = getTickerFromName(tokenName);
     
     return {
       name: tokenName,
@@ -214,7 +366,11 @@ export default {
   findNextTwitterFile,
   loadTwitterUsers,
   cleanName,
+  splitNameIntoTwoWords,
+  removeDigits,
   truncateTicker,
+  getTickerFromName,
+  capitalize,
   hasRealProfileImage,
   generateAvatarImage,
   downloadProfileImage,
